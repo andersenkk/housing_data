@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Housing Market Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js" defer></script>
+    <script src="dashboard-map.js" defer></script>
+</head>
+<body class="dashboard-page">
+    <header class="dashboard-header">
+        <a class="dashboard-brand" href="dashboard.html">Housing Data</a>
+        <a class="dashboard-exit" href="index.html">Log out</a>
+    </header>
+
+    <main class="dashboard-main">
+        <section class="dashboard-title-row" aria-labelledby="dashboard-title">
+            <div>
+                <p class="dashboard-eyebrow">MARKET OVERVIEW</p>
+                <h1 id="dashboard-title">Explore housing across the U.S.</h1>
+            </div>
+        </section>
+
+        <section class="map-section" aria-label="U.S. housing map">
+            <div class="filter-toolbar" aria-label="Dashboard filters">
+                <span class="filter-label">FILTERS</span>
+                <div class="filter-list">
+                    <button class="dashboard-filter" type="button" aria-pressed="false">Filter 1</button>
+                    <button class="dashboard-filter" type="button" aria-pressed="false">Filter 2</button>
+                    <button class="dashboard-filter" type="button" aria-pressed="false">Filter 3</button>
+                    <button class="dashboard-filter" type="button" aria-pressed="false">Filter 4</button>
+                    <button class="dashboard-filter" type="button" aria-pressed="false">Filter 5</button>
+                    <button class="dashboard-filter" type="button" aria-pressed="false">Filter 6</button>
+                </div>
+            </div>
+
+            <div class="map-heading">
+                <h2>United States</h2>
+                <p>Hover over a state to see more information</p>
+            </div>
+            <div class="us-map-wrap" id="us-map" aria-live="polite">
+                <p class="map-status">Loading state map...</p>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
