@@ -55,7 +55,13 @@ for state_name, abbreviation in us_states.items():
 
 dataframe = pd.DataFrame(med_house_prices, columns=["state", "date", "med_house_price"])
 dataframe.to_csv("median_listing_prices.csv", index=False)
+dataframe.to_json("median_listing_prices.json", orient="records", indent=2)
 
 dataframe = pd.DataFrame(med_income, columns=["state", "date", "med_income"])
 dataframe.to_csv("median_incomes.csv", index=False)
-
+dataframe.to_json("median_incomes.json", orient="records", indent=2)
+#So I am converting these to CSV so I can inspect to make sure that the data is being
+#Extracted properly. I will want to also convert these to JSON files so that the website can
+#Display these properly... It might be good to convert this script to a function, so that I can 
+#call the function in a differnt program... i.e. being javascript that the website will use...
+#overall the extraction for this is pretty clean...

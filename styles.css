@@ -307,6 +307,7 @@ body {
 }
 
 .us-map-wrap {
+    position: relative;
     width: 100%;
     min-height: 300px;
     padding: 0 18px 20px;
@@ -341,6 +342,40 @@ body {
 
 .map-status[data-error="true"] {
     color: #a33b30;
+}
+
+.map-tooltip {
+    position: absolute;
+    z-index: 2;
+    display: grid;
+    gap: 4px;
+    width: 220px;
+    padding: 12px 14px;
+    border: 1px solid #d5dfd9;
+    border-radius: 6px;
+    background: #fff;
+    box-shadow: 0 8px 22px rgba(23, 61, 50, 0.16);
+    pointer-events: none;
+}
+
+.map-tooltip[hidden] {
+    display: none;
+}
+
+.map-tooltip strong {
+    color: #173d32;
+    font-size: 0.9rem;
+}
+
+.map-tooltip span {
+    color: #17231e;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.map-tooltip small {
+    color: #65756e;
+    font-size: 0.75rem;
 }
 
 @media (max-width: 640px) {
