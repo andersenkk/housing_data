@@ -19,21 +19,46 @@
         <section class="dashboard-title-row" aria-labelledby="dashboard-title">
             <div>
                 <p class="dashboard-eyebrow">MARKET OVERVIEW</p>
-                <h1 id="dashboard-title">Explore housing across the U.S.</h1>
+                <h1 id="dashboard-title">Explore affordability metrics across the U.S.</h1>
             </div>
         </section>
 
         <section class="map-section" aria-label="U.S. housing map">
             <div class="filter-toolbar" aria-label="Dashboard filters">
-                <span class="filter-label">FILTERS</span>
-                <div class="filter-list">
-                    <button class="dashboard-filter" type="button" aria-pressed="false">Filter 1</button>
-                    <button class="dashboard-filter" type="button" aria-pressed="false">Filter 2</button>
-                    <button class="dashboard-filter" type="button" aria-pressed="false">Filter 3</button>
-                    <button class="dashboard-filter" type="button" aria-pressed="false">Filter 4</button>
-                    <button class="dashboard-filter" type="button" aria-pressed="false">Filter 5</button>
-                    <button class="dashboard-filter" type="button" aria-pressed="false">Filter 6</button>
+                <div class="filter-control">
+                    <label for="metric-filter">Metric</label>
+                    <select id="metric-filter" class="filter-select" disabled>
+                        <option>Loading...</option>
+                    </select>
                 </div>
+                <div class="filter-control">
+                    <label for="year-filter">Year</label>
+                    <select id="year-filter" class="filter-select" disabled>
+                        <option>Loading...</option>
+                    </select>
+                </div>
+                <div class="filter-control">
+                    <label for="month-filter">Month</label>
+                    <select id="month-filter" class="filter-select" disabled>
+                        <option>Loading...</option>
+                    </select>
+                </div>
+                <div class="filter-control state-filter-control">
+                    <span class="filter-control-label">State</span>
+                    <details class="state-picker" id="state-filter">
+                        <summary>Loading states...</summary>
+                        <div class="state-picker-menu">
+                            <div class="state-picker-actions">
+                                <button type="button" id="select-all-states">Select all</button>
+                                <button type="button" id="clear-states">Clear</button>
+                            </div>
+                            <div class="state-picker-list" id="state-filter-list"></div>
+                        </div>
+                    </details>
+                </div>
+                <div class="filter-placeholder" aria-label="Filter 5 placeholder">Filter 5</div>
+                <div class="filter-placeholder" aria-label="Filter 6 placeholder">Filter 6</div>
+                <p class="filter-status" id="filter-status" role="status" aria-live="polite"></p>
             </div>
 
             <div class="map-heading">

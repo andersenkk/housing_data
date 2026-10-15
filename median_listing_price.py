@@ -13,8 +13,7 @@ api_key = "06c30a349ad2f1a1858cd6a345fd9d98"
 from state_name_abb import us_states
 
 #creating empty lists to store median house prices and income
-med_house_prices = []
-med_income = []
+affordability_metrics = []
 
 #Looping entire list of state names
 for state_name, abbreviation in us_states.items():
@@ -23,45 +22,73 @@ for state_name, abbreviation in us_states.items():
     print(state_name)
 
     #URL for Median House Price MEDLISPRIC"State_Ab"
-    url_med_house_price = f"https://api.stlouisfed.org/fred/series/observations?series_id=MEDLISPRI{abbreviation}&api_key={api_key}&file_type=json"
-    with urlopen(url_med_house_price) as response:
-        data = json.load(response)
+    url_med_list_price = f"https://api.stlouisfed.org/fred/series/observations?series_id=MEDLISPRI{abbreviation}&api_key={api_key}&file_type=json"
+    with urlopen(url_med_list_price) as med_list_price_response:
+        med_list_price_data = json.load(med_list_price_response)
 
-    for observation in data["observations"]:
-        if observation["value"] == ".":
+    #creating dictionary to store median listing prices to eventually calculate average
+    prices_by_year = {}
+
+    #Comments
+    for med_list_price_observation in med_list_price_data["observations"]:
+        if med_list_price_observation["value"] == ".":
             continue
 
-        med_house_prices.append({
+        #capturing monthly median list price for year year of data
+        year = med_list_price_observation["date"][:4]
+        price = float(med_list_price_observation["value"])
+        prices_by_year.setdefault(year, []).append(price)
+
+        #appending median list price to dataframe
+        affordability_metrics.append({
             "state": state_name,
-            "date": observation["date"],
-            "med_house_price": float(observation["value"]),
+            "date": med_list_price_observation["date"],
+            "frequency": "monthly",
+            "metric": "median_listing_price",
+            "value": float(med_list_price_observation["value"]),
         })
 
     #URL for Median Household Income MEHOINUS"State_Ab"A646N
-    url_med_hh_income = f"https://api.stlouisfed.org/fred/series/observations?series_id=MEHOINUS{abbreviation}A646N&api_key={api_key}&file_type=json"
-    with urlopen(url_med_hh_income) as inc_response:
-        inc_data = json.load(inc_response)
+    url_med_hh_inc = f"https://api.stlouisfed.org/fred/series/observations?series_id=MEHOINUS{abbreviation}A646N&api_key={api_key}&file_type=json"
+    with urlopen(url_med_hh_inc) as med_hh_inc_response:
+        med_hh_inc_data = json.load(med_hh_inc_response)
 
-    for observation in inc_data["observations"]:
-        if observation["value"] == ".":
+    #creating method to capture income for each year
+    income_by_year = {}
+
+    for med_hh_inc_observation in med_hh_inc_data["observations"]:
+        if med_hh_inc_observation["value"] == ".":
             continue
 
-        med_income.append({
+        #caputuring median hh income for each year...
+        year = med_hh_inc_observation["date"][:4]
+        income = float(med_hh_inc_observation["value"])
+        income_by_year[year] = income
+
+        affordability_metrics.append({
             "state": state_name,
-            "date": observation["date"],
-            "med_income": float(observation["value"]),
+            "date": med_hh_inc_observation["date"],
+            "frequency": "annual",
+            "metric": "median_household_income",
+            "value": float(med_hh_inc_observation["value"]),
         })
 
+    #calculating affordability metrics
+    for year, monthly_prices in prices_by_year.items():
+        if len(monthly_prices) != 12 or year not in income_by_year:
+            continue
 
-dataframe = pd.DataFrame(med_house_prices, columns=["state", "date", "med_house_price"])
-dataframe.to_csv("median_listing_prices.csv", index=False)
-dataframe.to_json("median_listing_prices.json", orient="records", indent=2)
+        annual_average_price = sum(monthly_prices) / 12
+        ratio = annual_average_price / income_by_year[year]
 
-dataframe = pd.DataFrame(med_income, columns=["state", "date", "med_income"])
-dataframe.to_csv("median_incomes.csv", index=False)
-dataframe.to_json("median_incomes.json", orient="records", indent=2)
-#So I am converting these to CSV so I can inspect to make sure that the data is being
-#Extracted properly. I will want to also convert these to JSON files so that the website can
-#Display these properly... It might be good to convert this script to a function, so that I can 
-#call the function in a differnt program... i.e. being javascript that the website will use...
-#overall the extraction for this is pretty clean...
+        affordability_metrics.append({
+            "state": state_name,
+            "date": f"{year}-01-01",
+            "frequency": "annual",
+            "metric": "price_to_income_ratio",
+            "value": ratio,
+        })
+
+dataframe = pd.DataFrame(affordability_metrics, columns=["state", "date","metric","frequency","value"])
+dataframe.to_csv("affordability_metrics.csv", index=False)
+dataframe.to_json("affordability_metrics.json", orient="records", indent=2)

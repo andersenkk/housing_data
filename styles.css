@@ -252,42 +252,153 @@ body {
 }
 
 .filter-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 22px;
-    padding: 17px 22px;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    align-items: end;
+    gap: 14px;
+    padding: 18px 22px 14px;
     border-bottom: 1px solid #e8edea;
 }
 
-.filter-label {
-    flex: 0 0 auto;
+.filter-control {
+    display: grid;
+    min-width: 0;
+    gap: 6px;
 }
 
-.filter-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+.filter-control > label,
+.filter-control-label {
+    color: #53665e;
+    font-size: 0.76rem;
+    font-weight: 700;
 }
 
-.dashboard-filter {
-    min-height: 34px;
-    padding: 0 13px;
+.filter-select,
+.state-picker > summary {
+    width: 100%;
+    min-height: 38px;
+    padding: 0 11px;
     border: 1px solid #d8e1dc;
     border-radius: 5px;
     background: #fff;
     color: #40564c;
     font: inherit;
     font-size: 0.82rem;
+}
+
+.filter-select:disabled {
+    background: #f4f6f4;
+    color: #8a9891;
+}
+
+.state-picker {
+    position: relative;
+}
+
+.state-picker > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    list-style: none;
+}
+
+.state-picker > summary::-webkit-details-marker {
+    display: none;
+}
+
+.state-picker > summary::after {
+    content: "▾";
+    margin-left: 8px;
+    color: #567066;
+}
+
+.state-picker[open] > summary::after {
+    content: "▴";
+}
+
+.state-picker-menu {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 6px);
+    right: 0;
+    width: min(330px, calc(100vw - 48px));
+    padding: 10px;
+    border: 1px solid #d8e1dc;
+    border-radius: 6px;
+    background: #fff;
+    box-shadow: 0 12px 28px rgba(23, 61, 50, 0.16);
+}
+
+.state-picker-actions {
+    display: flex;
+    gap: 12px;
+    padding: 2px 6px 9px;
+    border-bottom: 1px solid #e8edea;
+}
+
+.state-picker-actions button {
+    padding: 2px 0;
+    border: 0;
+    background: transparent;
+    color: #275d49;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
     cursor: pointer;
 }
 
-.dashboard-filter[aria-pressed="true"] {
-    border-color: #275d49;
-    background: #e6f0eb;
-    color: #174b37;
+.state-picker-list {
+    display: grid;
+    max-height: 260px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px 8px;
+    overflow-y: auto;
+    padding-top: 7px;
 }
 
-.dashboard-filter:focus-visible,
+.state-option {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 4px;
+    border-radius: 4px;
+    color: #40564c;
+    font-size: 0.78rem;
+    cursor: pointer;
+}
+
+.state-option:hover {
+    background: #f2f6f3;
+}
+
+.state-option input {
+    accent-color: #275d49;
+}
+
+.filter-placeholder {
+    display: flex;
+    min-height: 38px;
+    align-items: center;
+    padding: 0 11px;
+    border: 1px dashed #d8e1dc;
+    border-radius: 5px;
+    color: #9aa69f;
+    font-size: 0.78rem;
+}
+
+.filter-status {
+    grid-column: 1 / -1;
+    min-height: 1em;
+    color: #65756e;
+    font-size: 0.78rem;
+}
+
+.filter-select:focus-visible,
+.state-picker summary:focus-visible,
+.state-picker button:focus-visible,
+.state-option input:focus-visible,
 .state-shape:focus-visible {
     outline: 3px solid #d39c47;
     outline-offset: 2px;
@@ -332,6 +443,15 @@ body {
 .state-shape:hover,
 .state-shape:focus {
     fill: #477b61;
+}
+
+.state-shape.is-filtered-out {
+    fill: #e3e8e5;
+}
+
+.state-shape.is-filtered-out:hover,
+.state-shape.is-filtered-out:focus {
+    fill: #98aaa0;
 }
 
 .map-status {
@@ -394,20 +514,13 @@ body {
     }
 
     .filter-toolbar {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
         padding: 15px;
     }
 
-    .filter-list {
-        display: grid;
-        width: 100%;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .dashboard-filter {
-        padding: 0 7px;
+    .filter-placeholder {
+        min-height: 34px;
     }
 
     .map-heading {
@@ -420,6 +533,12 @@ body {
     .us-map-wrap {
         min-height: 200px;
         padding: 0 6px 12px;
+    }
+}
+
+@media (min-width: 641px) and (max-width: 1050px) {
+    .filter-toolbar {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 
