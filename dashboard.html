@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Housing Market Dashboard</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=2">
     <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js" defer></script>
     <script src="dashboard-map.js" defer></script>
@@ -59,6 +59,37 @@
                 <div class="filter-placeholder" aria-label="Filter 5 placeholder">Filter 5</div>
                 <div class="filter-placeholder" aria-label="Filter 6 placeholder">Filter 6</div>
                 <p class="filter-status" id="filter-status" role="status" aria-live="polite"></p>
+            </div>
+
+            <div class="playback-toolbar" aria-label="Year playback controls">
+                <button class="playback-button" id="playback-toggle" type="button" aria-pressed="false" disabled>
+                    <span class="playback-icon" aria-hidden="true">&#9654;</span>
+                    <span class="playback-button-label">Play</span>
+                </button>
+                <div class="playback-range">
+                    <label for="start-year">Start
+                        <select id="start-year" class="filter-select" disabled>
+                            <option>Loading...</option>
+                        </select>
+                    </label>
+                    <label for="end-year">Finish
+                        <select id="end-year" class="filter-select" disabled>
+                            <option>Loading...</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="playback-current" aria-live="polite">
+                    <span class="playback-current-label">SHOWING</span>
+                    <output id="playback-year">—</output>
+                </div>
+                <div class="map-legend" aria-label="Map color scale: lower values green, higher values red">
+                    <span class="legend-heading">VALUE SCALE</span>
+                    <div class="legend-scale">
+                        <span id="legend-min">Lower</span>
+                        <span class="legend-gradient" aria-hidden="true"></span>
+                        <span id="legend-max">Higher</span>
+                    </div>
+                </div>
             </div>
 
             <div class="map-heading">

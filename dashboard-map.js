@@ -6,9 +6,16 @@ if (mapContainer) {
   const metricSelect = document.querySelector("#metric-filter");
   const yearSelect = document.querySelector("#year-filter");
   const monthSelect = document.querySelector("#month-filter");
+  const startYearSelect = document.querySelector("#start-year");
+  const endYearSelect = document.querySelector("#end-year");
+  const playbackButton = document.querySelector("#playback-toggle");
+  const playbackYear = document.querySelector("#playback-year");
+  const legendMin = document.querySelector("#legend-min");
+  const legendMax = document.querySelector("#legend-max");
   const statePicker = document.querySelector("#state-filter");
   const stateFilterList = document.querySelector("#state-filter-list");
   const filterStatus = document.querySelector("#filter-status");
+  const playbackInterval = 1500;
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
@@ -48,6 +55,8 @@ if (mapContainer) {
       const selectedStates = new Set(stateNames);
       let activeStateNode = null;
       let pointerPosition = null;
+      let playbackTimer = null;
+      let colorScale = null;
 
       function formatMetricValue(row) {
         if (row.metric === "price_to_income_ratio") {
@@ -79,11 +88,102 @@ if (mapContainer) {
         });
       }
 
+      function metricRangeRows() {
+        const metric = metricSelect.value;
+        const startYear = Number(startYearSelect.value);
+        const endYear = Number(endYearSelect.value);
+        const isMonthly = dataRows.some((row) => row.metric === metric && row.frequency === "monthly");
+
+        return dataRows.filter((row) => {
+          const year = Number(row.date.slice(0, 4));
+          if (row.metric !== metric || year < startYear || year > endYear) return false;
+          return !isMonthly || row.date.slice(5, 7) === monthSelect.value;
+        });
+      }
+
+      function updateLegend(values) {
+        if (!values.length) {
+          legendMin.textContent = "No data";
+          legendMax.textContent = "No data";
+          colorScale = null;
+          return;
+        }
+
+        const minimum = Math.min(...values);
+        const maximum = Math.max(...values);
+        colorScale = minimum === maximum
+          ? () => "#f4e6a5"
+          : d3.scaleSequential(d3.interpolateRdYlGn).domain([maximum, minimum]);
+        legendMin.textContent = formatMetricValue({ metric: metricSelect.value, value: minimum });
+        legendMax.textContent = formatMetricValue({ metric: metricSelect.value, value: maximum });
+      }
+
       function updateFilterStatus(rows) {
         const selectedMonth = monthSelect.disabled ? "" : `, ${monthNames[Number(monthSelect.value) - 1]}`;
         const selectedLabel = metricLabels[metricSelect.value] || metricSelect.value;
         const selectedCount = rows.filter((row) => selectedStates.has(row.state)).length;
         filterStatus.textContent = `${selectedLabel} · ${yearSelect.value}${selectedMonth} · ${selectedCount} selected states with data`;
+        playbackYear.value = yearSelect.value || "—";
+      }
+
+      function stopPlayback() {
+        if (playbackTimer !== null) {
+          window.clearInterval(playbackTimer);
+          playbackTimer = null;
+        }
+        playbackButton.querySelector(".playback-icon").innerHTML = "&#9654;";
+        playbackButton.querySelector(".playback-button-label").textContent = "Play";
+        playbackButton.setAttribute("aria-label", "Play year-by-year map animation");
+        playbackButton.setAttribute("aria-pressed", "false");
+      }
+
+      function advancePlayback() {
+        const years = [...new Set(
+          metricRangeRows().map((row) => row.date.slice(0, 4)),
+        )].sort();
+        const currentIndex = years.indexOf(yearSelect.value);
+        if (currentIndex < 0 || currentIndex >= years.length - 1) {
+          stopPlayback();
+          return;
+        }
+        yearSelect.value = years[currentIndex + 1];
+        populateMonthOptions();
+      }
+
+      function togglePlayback() {
+        if (playbackTimer !== null) {
+          stopPlayback();
+          return;
+        }
+
+        const startYear = Number(startYearSelect.value);
+        const finishYear = Number(endYearSelect.value);
+        if (!Number.isFinite(startYear) || !Number.isFinite(finishYear) || startYear > finishYear) return;
+
+        const availableYears = [...new Set(
+          dataRows
+            .filter((row) => {
+              const year = Number(row.date.slice(0, 4));
+              const isMonthly = row.frequency === "monthly";
+              return row.metric === metricSelect.value
+                && year >= startYear
+                && year <= finishYear
+                && (!isMonthly || row.date.slice(5, 7) === monthSelect.value);
+            })
+            .map((row) => row.date.slice(0, 4)),
+        )].sort();
+
+        if (!availableYears.length) return;
+        if (!availableYears.includes(yearSelect.value) || Number(yearSelect.value) >= finishYear) {
+          yearSelect.value = availableYears[0];
+          populateMonthOptions();
+        }
+
+        playbackButton.querySelector(".playback-icon").innerHTML = "&#10074;&#10074;";
+        playbackButton.querySelector(".playback-button-label").textContent = "Pause";
+        playbackButton.setAttribute("aria-label", "Pause year-by-year map animation");
+        playbackButton.setAttribute("aria-pressed", "true");
+        playbackTimer = window.setInterval(advancePlayback, playbackInterval);
       }
 
       function positionTooltip(stateNode, event) {
@@ -145,9 +245,18 @@ if (mapContainer) {
         const rows = selectedMetricRows();
         const rowsByState = new Map(rows.map((row) => [row.state, row]));
         const metric = metricSelect.value;
+        const rangeValues = metricRangeRows().map((row) => Number(row.value)).filter(Number.isFinite);
+        updateLegend(rangeValues);
 
         svg.selectAll(".state-shape")
           .classed("is-filtered-out", (state) => !selectedStates.has(state.properties.name))
+          .style("fill", (state) => {
+            const name = state.properties.name;
+            const row = rowsByState.get(name);
+            if (!selectedStates.has(name)) return "#e3e8e5";
+            if (!row || !colorScale) return "#d9ddda";
+            return colorScale(Number(row.value));
+          })
           .attr("aria-label", (state) => {
             const name = state.properties.name;
             const row = rowsByState.get(name);
@@ -174,6 +283,7 @@ if (mapContainer) {
       }
 
       function populateYearOptions() {
+        stopPlayback();
         const years = [...new Set(
           dataRows
             .filter((row) => row.metric === metricSelect.value)
@@ -181,11 +291,22 @@ if (mapContainer) {
         )].sort().reverse();
         yearSelect.replaceChildren(...years.map((year) => new Option(year, year)));
         yearSelect.disabled = years.length === 0;
+        playbackButton.disabled = years.length < 2;
+        const ascendingYears = [...years].reverse();
+        startYearSelect.replaceChildren(...ascendingYears.map((year) => new Option(year, year)));
+        endYearSelect.replaceChildren(...ascendingYears.map((year) => new Option(year, year)));
+        startYearSelect.disabled = years.length === 0;
+        endYearSelect.disabled = years.length === 0;
+        if (ascendingYears.length) {
+          startYearSelect.value = ascendingYears[0];
+          endYearSelect.value = ascendingYears[ascendingYears.length - 1];
+        }
         populateMonthOptions();
       }
 
       function populateMonthOptions() {
         const monthly = dataRows.some((row) => row.metric === metricSelect.value && row.frequency === "monthly");
+        const previousMonth = monthSelect.value;
         const months = monthly ? [...new Set(
           dataRows
             .filter((row) => row.metric === metricSelect.value && row.date.slice(0, 4) === yearSelect.value)
@@ -199,6 +320,8 @@ if (mapContainer) {
         monthSelect.disabled = !monthly || months.length === 0;
         if (months.length === 0) {
           monthSelect.add(new Option("Not applicable", "not-applicable"));
+        } else if (months.includes(previousMonth)) {
+          monthSelect.value = previousMonth;
         }
         refreshMap();
       }
@@ -254,8 +377,39 @@ if (mapContainer) {
       populateYearOptions();
 
       metricSelect.addEventListener("change", populateYearOptions);
-      yearSelect.addEventListener("change", populateMonthOptions);
-      monthSelect.addEventListener("change", refreshMap);
+      yearSelect.addEventListener("change", () => {
+        stopPlayback();
+        populateMonthOptions();
+      });
+      monthSelect.addEventListener("change", () => {
+        stopPlayback();
+        refreshMap();
+      });
+      playbackButton.addEventListener("click", togglePlayback);
+      startYearSelect.addEventListener("change", () => {
+        stopPlayback();
+        if (Number(startYearSelect.value) > Number(endYearSelect.value)) {
+          endYearSelect.value = startYearSelect.value;
+        }
+        if (Number(yearSelect.value) < Number(startYearSelect.value)) {
+          yearSelect.value = startYearSelect.value;
+          populateMonthOptions();
+        } else {
+          refreshMap();
+        }
+      });
+      endYearSelect.addEventListener("change", () => {
+        stopPlayback();
+        if (Number(endYearSelect.value) < Number(startYearSelect.value)) {
+          startYearSelect.value = endYearSelect.value;
+        }
+        if (Number(yearSelect.value) > Number(endYearSelect.value)) {
+          yearSelect.value = endYearSelect.value;
+          populateMonthOptions();
+        } else {
+          refreshMap();
+        }
+      });
       stateFilterList.addEventListener("change", (event) => {
         if (event.target.matches('input[type="checkbox"]')) {
           if (event.target.checked) selectedStates.add(event.target.value);
