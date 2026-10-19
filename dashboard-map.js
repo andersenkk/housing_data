@@ -15,7 +15,7 @@ if (mapContainer) {
   const statePicker = document.querySelector("#state-filter");
   const stateFilterList = document.querySelector("#state-filter-list");
   const filterStatus = document.querySelector("#filter-status");
-  const playbackInterval = 700;
+  const playbackInterval = 350;
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
