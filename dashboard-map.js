@@ -21,10 +21,13 @@ if (mapContainer) {
     "July", "August", "September", "October", "November", "December",
   ];
   const metricLabels = {
+    house_price_index: "House price index",
     median_listing_price: "Median listing price",
     median_household_income: "Median household income",
     price_to_income_ratio: "Price-to-income ratio",
+    housing_price_growth_relative_to_income: "Housing price growth relative to income",
   };
+  const relativeGrowthMetric = "housing_price_growth_relative_to_income";
 
   Promise.all([d3.json(mapUrl), d3.json(dataUrl)])
     .then(([topology, dataRows]) => {
@@ -53,14 +56,32 @@ if (mapContainer) {
 
       const stateNames = states.features.map((state) => state.properties.name);
       const selectedStates = new Set(stateNames);
+      const annualHpiByStateYear = new Map();
+      const annualIncomeByStateYear = new Map();
+      for (const row of dataRows) {
+        const year = row.date.slice(0, 4);
+        if (row.metric === "house_price_index" && row.date.slice(5, 7) === "10") {
+          annualHpiByStateYear.set(`${row.state}|${year}`, Number(row.value));
+        } else if (row.metric === "median_household_income") {
+          annualIncomeByStateYear.set(`${row.state}|${year}`, Number(row.value));
+        }
+      }
       let activeStateNode = null;
       let pointerPosition = null;
       let playbackTimer = null;
       let colorScale = null;
 
       function formatMetricValue(row) {
+        if (row.metric === "house_price_index") {
+          return Number(row.value).toFixed(2);
+        }
         if (row.metric === "price_to_income_ratio") {
           return `${Number(row.value).toFixed(1)}× annual income`;
+        }
+        if (row.metric === relativeGrowthMetric) {
+          const value = Number(row.value);
+          const sign = value > 0 ? "+" : value < 0 ? "−" : "";
+          return `${sign}${Math.abs(value).toFixed(1)}%`;
         }
         return new Intl.NumberFormat("en-US", {
           style: "currency",
@@ -70,6 +91,7 @@ if (mapContainer) {
       }
 
       function formatObservationDate(row) {
+        if (row.metric === "house_price_index") return `Q4 ${row.date.slice(0, 4)}`;
         if (row.frequency === "annual") return row.date.slice(0, 4);
         return new Intl.DateTimeFormat("en-US", {
           month: "long",
@@ -81,9 +103,13 @@ if (mapContainer) {
       function selectedMetricRows() {
         const metric = metricSelect.value;
         const year = yearSelect.value;
+        if (metric === relativeGrowthMetric) {
+          return buildRelativeGrowthRows(Number(startYearSelect.value), Number(year));
+        }
         const frequency = dataRows.find((row) => row.metric === metric)?.frequency;
         return dataRows.filter((row) => {
           if (row.metric !== metric || row.date.slice(0, 4) !== year) return false;
+          if (metric === "house_price_index") return row.date.slice(5, 7) === "10";
           return frequency !== "monthly" || row.date.slice(5, 7) === monthSelect.value;
         });
       }
@@ -92,13 +118,63 @@ if (mapContainer) {
         const metric = metricSelect.value;
         const startYear = Number(startYearSelect.value);
         const endYear = Number(endYearSelect.value);
+        if (metric === relativeGrowthMetric) {
+          return buildRelativeGrowthRows(startYear, endYear);
+        }
         const isMonthly = dataRows.some((row) => row.metric === metric && row.frequency === "monthly");
 
         return dataRows.filter((row) => {
           const year = Number(row.date.slice(0, 4));
           if (row.metric !== metric || year < startYear || year > endYear) return false;
+          if (metric === "house_price_index") return row.date.slice(5, 7) === "10";
           return !isMonthly || row.date.slice(5, 7) === monthSelect.value;
         });
+      }
+
+      function getAvailableYears(metric) {
+        if (metric === relativeGrowthMetric) {
+          const years = new Set();
+          for (const key of annualHpiByStateYear.keys()) {
+            const [state, year] = key.split("|");
+            if (annualIncomeByStateYear.has(`${state}|${year}`)) years.add(year);
+          }
+          return [...years].sort();
+        }
+        return [...new Set(
+          dataRows
+            .filter((row) => row.metric === metric
+              && (metric !== "house_price_index" || row.date.slice(5, 7) === "10"))
+            .map((row) => row.date.slice(0, 4)),
+        )].sort();
+      }
+
+      function buildRelativeGrowthRows(baselineYear, throughYear) {
+        if (!Number.isFinite(baselineYear) || !Number.isFinite(throughYear)) return [];
+        const rows = [];
+        for (const state of stateNames) {
+          const baselineKey = `${state}|${baselineYear}`;
+          const baselineHpi = annualHpiByStateYear.get(baselineKey);
+          const baselineIncome = annualIncomeByStateYear.get(baselineKey);
+          if (!baselineHpi || !baselineIncome) continue;
+
+          for (let year = baselineYear; year <= throughYear; year += 1) {
+            const key = `${state}|${year}`;
+            const hpi = annualHpiByStateYear.get(key);
+            const income = annualIncomeByStateYear.get(key);
+            if (!hpi || !income) continue;
+
+            const baselinePriceToIncome = baselineHpi / baselineIncome;
+            const currentPriceToIncome = hpi / income;
+            rows.push({
+              state,
+              date: `${year}-01-01`,
+              metric: relativeGrowthMetric,
+              frequency: "annual",
+              value: (currentPriceToIncome / baselinePriceToIncome - 1) * 100,
+            });
+          }
+        }
+        return rows;
       }
 
       function updateLegend(values) {
@@ -121,7 +197,10 @@ if (mapContainer) {
       function updateFilterStatus(rows) {
         const selectedMonth = monthSelect.disabled ? "" : `, ${monthNames[Number(monthSelect.value) - 1]}`;
         const selectedLabel = metricLabels[metricSelect.value] || metricSelect.value;
-        const selectedCount = rows.filter((row) => selectedStates.has(row.state)).length;
+        const selectedCount = new Set(rows
+          .filter((row) => selectedStates.has(row.state)
+            && row.date.slice(0, 4) === yearSelect.value)
+          .map((row) => row.state)).size;
         filterStatus.textContent = `${selectedLabel} · ${yearSelect.value}${selectedMonth} · ${selectedCount} selected states with data`;
         playbackYear.value = yearSelect.value || "—";
       }
@@ -160,18 +239,14 @@ if (mapContainer) {
         const finishYear = Number(endYearSelect.value);
         if (!Number.isFinite(startYear) || !Number.isFinite(finishYear) || startYear > finishYear) return;
 
-        const availableYears = [...new Set(
-          dataRows
-            .filter((row) => {
-              const year = Number(row.date.slice(0, 4));
-              const isMonthly = row.frequency === "monthly";
-              return row.metric === metricSelect.value
-                && year >= startYear
-                && year <= finishYear
-                && (!isMonthly || row.date.slice(5, 7) === monthSelect.value);
-            })
-            .map((row) => row.date.slice(0, 4)),
-        )].sort();
+        const isMonthly = dataRows.some((row) => row.metric === metricSelect.value && row.frequency === "monthly");
+        const availableYears = getAvailableYears(metricSelect.value).filter((year) => {
+          const numericYear = Number(year);
+          if (numericYear < startYear || numericYear > finishYear) return false;
+          return !isMonthly || dataRows.some((row) => row.metric === metricSelect.value
+            && row.date.slice(0, 4) === year
+            && row.date.slice(5, 7) === monthSelect.value);
+        });
 
         if (!availableYears.length) return;
         if (!availableYears.includes(yearSelect.value) || Number(yearSelect.value) >= finishYear) {
@@ -211,7 +286,8 @@ if (mapContainer) {
       function showStateDetails(event, state) {
         activeStateNode = this;
         const name = state.properties.name;
-        const row = selectedMetricRows().find((item) => item.state === name);
+        const row = selectedMetricRows().find((item) => item.state === name
+          && item.date.slice(0, 4) === yearSelect.value);
 
         tooltip
           .html("")
@@ -222,7 +298,9 @@ if (mapContainer) {
           tooltip.append("span").text(formatMetricValue(row));
           tooltip
             .append("small")
-            .text(`${metricLabels[row.metric] || row.metric} · ${formatObservationDate(row)}`);
+            .text(row.metric === relativeGrowthMetric
+              ? `${metricLabels[row.metric]} · ${startYearSelect.value} baseline · ${formatObservationDate(row)}`
+              : `${metricLabels[row.metric] || row.metric} · ${formatObservationDate(row)}`);
         } else {
           tooltip.append("span").text("No data for this selection");
           tooltip
@@ -284,11 +362,7 @@ if (mapContainer) {
 
       function populateYearOptions() {
         stopPlayback();
-        const years = [...new Set(
-          dataRows
-            .filter((row) => row.metric === metricSelect.value)
-            .map((row) => row.date.slice(0, 4)),
-        )].sort().reverse();
+        const years = getAvailableYears(metricSelect.value).reverse();
         yearSelect.replaceChildren(...years.map((year) => new Option(year, year)));
         yearSelect.disabled = years.length === 0;
         playbackButton.disabled = years.length < 2;
@@ -300,7 +374,12 @@ if (mapContainer) {
         if (ascendingYears.length) {
           startYearSelect.value = ascendingYears[0];
           endYearSelect.value = ascendingYears[ascendingYears.length - 1];
+          yearSelect.value = ascendingYears[ascendingYears.length - 1];
         }
+        document.querySelector('label[for="year-filter"]').textContent =
+          metricSelect.value === relativeGrowthMetric
+            ? "Compare year"
+            : metricSelect.value === "house_price_index" ? "Year (Q4)" : "Year";
         populateMonthOptions();
       }
 
@@ -367,7 +446,9 @@ if (mapContainer) {
         .append("title")
         .text((state) => state.properties.name);
 
-      const metrics = [...new Set(dataRows.map((row) => row.metric))];
+      const metrics = [...new Set(dataRows.map((row) => row.metric))]
+        .filter((metric) => metric !== "house_price_index")
+        .concat("house_price_index", relativeGrowthMetric);
       metricSelect.replaceChildren(...metrics.map((metric) => new Option(
         metricLabels[metric] || metric.replaceAll("_", " "),
         metric,
@@ -379,6 +460,10 @@ if (mapContainer) {
       metricSelect.addEventListener("change", populateYearOptions);
       yearSelect.addEventListener("change", () => {
         stopPlayback();
+        if (Number(yearSelect.value) < Number(startYearSelect.value)) {
+          startYearSelect.value = yearSelect.value;
+        }
+        endYearSelect.value = yearSelect.value;
         populateMonthOptions();
       });
       monthSelect.addEventListener("change", () => {
@@ -391,6 +476,16 @@ if (mapContainer) {
         if (Number(startYearSelect.value) > Number(endYearSelect.value)) {
           endYearSelect.value = startYearSelect.value;
         }
+        if (metricSelect.value === relativeGrowthMetric) {
+          const validTargetYears = getAvailableYears(relativeGrowthMetric)
+            .filter((year) => Number(year) >= Number(startYearSelect.value)
+              && Number(year) <= Number(endYearSelect.value))
+            .reverse();
+          yearSelect.replaceChildren(...validTargetYears.map((year) => new Option(year, year)));
+          if (!validTargetYears.includes(yearSelect.value)) {
+            yearSelect.value = startYearSelect.value;
+          }
+        }
         if (Number(yearSelect.value) < Number(startYearSelect.value)) {
           yearSelect.value = startYearSelect.value;
           populateMonthOptions();
@@ -402,6 +497,16 @@ if (mapContainer) {
         stopPlayback();
         if (Number(endYearSelect.value) < Number(startYearSelect.value)) {
           startYearSelect.value = endYearSelect.value;
+        }
+        if (metricSelect.value === relativeGrowthMetric) {
+          const validTargetYears = getAvailableYears(relativeGrowthMetric)
+            .filter((year) => Number(year) >= Number(startYearSelect.value)
+              && Number(year) <= Number(endYearSelect.value))
+            .reverse();
+          yearSelect.replaceChildren(...validTargetYears.map((year) => new Option(year, year)));
+          if (!validTargetYears.includes(yearSelect.value)) {
+            yearSelect.value = endYearSelect.value;
+          }
         }
         if (Number(yearSelect.value) > Number(endYearSelect.value)) {
           yearSelect.value = endYearSelect.value;
